@@ -92,6 +92,7 @@ Couldn't really be any simpler:
 
 ```bash
 Usage of pkiplot:
+  -f, --format string      Output format (one of [mermaid]) (default "mermaid")
   -n, --namespace string   Only include namespace-scoped resources in this namespace (also the default namespace for resources without namespace set)
   -v, --verbose            Enable more verbose output
   -V, --version            Show version info and exit immediately
