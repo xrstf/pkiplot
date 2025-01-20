@@ -30,3 +30,7 @@ clean:
 .PHONY: lint
 lint:
 	golangci-lint run ./...
+
+.PHONY: imports
+imports:
+	gimps .
