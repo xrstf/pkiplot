@@ -23,6 +23,9 @@ func NewFromPKI(pki *types.PKI) Graph {
 	grph := New()
 
 	// add vertices for all PKI elements
+	for _, secret := range pki.Secrets {
+		grph.g.AddVertex(secretNode(secret))
+	}
 	for _, cert := range pki.Certificates {
 		grph.g.AddVertex(certificateNode(cert))
 	}
