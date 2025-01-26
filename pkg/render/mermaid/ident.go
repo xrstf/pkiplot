@@ -63,3 +63,22 @@ func nodeClass(n pkigraph.Node) string {
 
 	return class
 }
+
+func nodeType(n pkigraph.Node) string {
+	switch {
+	case n.Secret != nil:
+		return "Secret"
+	case n.Certificate != nil:
+		if n.Certificate.Spec.IsCA {
+			return "CA Certificate"
+		} else {
+			return "Certificate"
+		}
+	case n.Issuer != nil:
+		return "Issuer"
+	case n.ClusterIssuer != nil:
+		return "ClusterIssuer"
+	default:
+		panic("Unexpected node: no object given.")
+	}
+}

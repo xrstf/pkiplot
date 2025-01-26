@@ -23,12 +23,17 @@ func New() *renderer {
 	return &renderer{}
 }
 
+var (
+	showLabels       bool
+	disableClassDefs bool
+)
+
 func (r *renderer) AddFlags(fs *pflag.FlagSet) {
-	// NOP
+	fs.BoolVarP(&showLabels, "mermaid-show-type", "", showLabels, "Mermaid: include a node's type in the node label")
+	fs.BoolVarP(&disableClassDefs, "mermaid-disable-classdefs", "", disableClassDefs, "Mermaid: do not output classDef statements")
 }
 
 func (r *renderer) ValidateFlags() error {
-	// NOP
 	return nil
 }
 
@@ -52,7 +57,12 @@ func (r *renderer) RenderGraph(pki pkigraph.Graph) (string, error) {
 		}
 
 		srcNodeID := nodeID(srcNode)
-		buf.Printf("\t%s([%s]):::%s\n", srcNodeID, objectName(srcNode.Object()), nodeClass(srcNode))
+
+		name := objectName(srcNode.Object())
+		if showLabels {
+			name = fmt.Sprintf("<code>%s</code><br>%s", name, nodeType(srcNode))
+		}
+		buf.Printf("\t%s([%q]):::%s\n", srcNodeID, name, nodeClass(srcNode))
 	}
 
 	buf.Printf("\n")
@@ -81,12 +91,14 @@ func (r *renderer) RenderGraph(pki pkigraph.Graph) (string, error) {
 		}
 	}
 
-	buf.Printf("\n")
-	buf.WriteString("\tclassDef clusterissuer color:#7F7\n")
-	buf.WriteString("\tclassDef issuer color:#77F\n")
-	buf.WriteString("\tclassDef ca color:#F77\n")
-	buf.WriteString("\tclassDef cert color:orange\n")
-	buf.WriteString("\tclassDef secret color:red")
+	if !disableClassDefs {
+		buf.Printf("\n")
+		buf.WriteString("\tclassDef clusterissuer color:#7F7\n")
+		buf.WriteString("\tclassDef issuer color:#77F\n")
+		buf.WriteString("\tclassDef ca color:#F77\n")
+		buf.WriteString("\tclassDef cert color:orange\n")
+		buf.WriteString("\tclassDef secret color:red")
+	}
 
 	return buf.String(), nil
 }
