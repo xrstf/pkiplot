@@ -17,8 +17,10 @@ import (
 
 	"go.xrstf.de/pkiplot/pkg/types"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -44,6 +46,7 @@ func LoadPKI(sources []string, opt *Options) (*types.PKI, error) {
 	}
 
 	result := &types.PKI{
+		Secrets:        []corev1.Secret{},
 		Certificates:   []certmanagerv1.Certificate{},
 		Issuers:        []certmanagerv1.Issuer{},
 		ClusterIssuers: []certmanagerv1.ClusterIssuer{},
@@ -54,17 +57,6 @@ func LoadPKI(sources []string, opt *Options) (*types.PKI, error) {
 	for _, source := range sources {
 		if err := loadManifestsSource(result, opt, source); err != nil {
 			return nil, fmt.Errorf("failed to load from %q: %w", source, err)
-		}
-	}
-
-	// forbid namespace-scoped resources without a namespace
-	for idx, cert := range result.Certificates {
-		if cert.Namespace == "" {
-			if opt.Namespace == "" {
-				return nil, fmt.Errorf("Certificate %d is invalid: no namespace set and no --namespace flag provided", idx)
-			}
-
-			result.Certificates[idx].Namespace = opt.Namespace
 		}
 	}
 
@@ -79,6 +71,18 @@ func LoadPKI(sources []string, opt *Options) (*types.PKI, error) {
 
 		if identifiers.Has(ident) {
 			return nil, fmt.Errorf("found multiple definitions for Certificate %s", ident)
+		}
+	}
+
+	identifiers = sets.New[string]()
+	for idx, secret := range result.Secrets {
+		ident, err := getResourceIdentifier(&secret)
+		if err != nil {
+			return nil, fmt.Errorf("Secret %d is invalid: %w", idx, err)
+		}
+
+		if identifiers.Has(ident) {
+			return nil, fmt.Errorf("found multiple definitions for Secret %s", ident)
 		}
 	}
 
@@ -107,6 +111,10 @@ func LoadPKI(sources []string, opt *Options) (*types.PKI, error) {
 	}
 
 	// sort all lists to ensure a stable output
+
+	sort.Slice(result.Secrets, func(i, j int) bool {
+		return resourceIsLess(&result.Secrets[i], &result.Secrets[j])
+	})
 
 	sort.Slice(result.Certificates, func(i, j int) bool {
 		return resourceIsLess(&result.Certificates[i], &result.Certificates[j])
@@ -242,6 +250,7 @@ func loadManifestsSourceReader(result *types.PKI, opt *Options, source io.ReadCl
 			continue
 		}
 
+		result.Secrets = append(result.Secrets, fileContents.Secrets...)
 		result.Certificates = append(result.Certificates, fileContents.Certificates...)
 		result.Issuers = append(result.Issuers, fileContents.Issuers...)
 		result.ClusterIssuers = append(result.ClusterIssuers, fileContents.ClusterIssuers...)
@@ -293,108 +302,100 @@ func parseFileContents(opt *Options, data []byte) (*types.PKI, error) {
 
 	err := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(data), 1024).Decode(&candidate)
 	if err != nil {
-		return nil, fmt.Errorf("document is not valid YAML: %w", err)
+		return nil, fmt.Errorf("document is not valid Kubernetes YAML: %w", err)
 	}
 
-	apiVersion := certmanagerv1.SchemeGroupVersion.String()
-
-	if candidate.GetAPIVersion() != apiVersion {
-		return nil, nil
-	}
-
-	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(data), 1024)
 	result := &types.PKI{
+		Secrets:        []corev1.Secret{},
 		Certificates:   []certmanagerv1.Certificate{},
 		Issuers:        []certmanagerv1.Issuer{},
 		ClusterIssuers: []certmanagerv1.ClusterIssuer{},
 	}
 
-	makeError := func(kind string, err error) error {
-		return fmt.Errorf("document is not valid cert-manager.io/v1 %s: %w", kind, err)
+	if err := parseUnstructured(opt, candidate, result); err != nil {
+		return nil, err
 	}
 
-	switch candidate.GetKind() {
-	case "Certificate":
+	return result, nil
+}
+
+func parseUnstructured(opt *Options, candidate unstructured.Unstructured, result *types.PKI) error {
+	// recurse into lists
+	if candidate.IsList() {
+		list, err := candidate.ToList()
+		if err != nil {
+			return fmt.Errorf("object looks like List, but: %w", err)
+		}
+
+		for _, obj := range list.Items {
+			if err := parseUnstructured(opt, obj, result); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	makeError := func(kind string, err error) error {
+		return fmt.Errorf("document is not valid %s: %w", kind, err)
+	}
+
+	switch candidate.GroupVersionKind().GroupKind().String() {
+	case "Secret":
+		secret := corev1.Secret{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(candidate.Object, &secret); err != nil {
+			return makeError("Secret", err)
+		}
+
+		// ignore non-TLS secrets as they should not influence the PKI structure (there might be a secret
+		// for some ACME stuff, but those are not relevant here)
+		if secret.Type != corev1.SecretTypeTLS {
+			return nil
+		}
+
+		if err := injectNamespace(&secret, opt); err != nil {
+			return makeError("Secret", err)
+		}
+		if resourceMatchesOpt(&secret, opt) {
+			result.Secrets = append(result.Secrets, secret)
+		}
+
+	case "Certificate.cert-manager.io":
 		cert := certmanagerv1.Certificate{}
-		if err := decoder.Decode(&cert); err != nil {
-			return nil, makeError("Certificate", err)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(candidate.Object, &cert); err != nil {
+			return makeError("Certificate", err)
 		}
 		if err := injectNamespace(&cert, opt); err != nil {
-			return nil, makeError("Certificate", err)
+			return makeError("Certificate", err)
 		}
 		if resourceMatchesOpt(&cert, opt) {
 			result.Certificates = append(result.Certificates, cert)
 		}
 
-	case "CertificateList":
-		list := certmanagerv1.CertificateList{}
-		if err := decoder.Decode(&list); err != nil {
-			return nil, makeError("CertificateList", err)
-		}
-		for _, cert := range list.Items {
-			if err := injectNamespace(&cert, opt); err != nil {
-				return nil, makeError("Certificate", err)
-			}
-			if resourceMatchesOpt(&cert, opt) {
-				result.Certificates = append(result.Certificates, cert)
-			}
-		}
-
-	case "Issuer":
+	case "Issuer.cert-manager.io":
 		issuer := certmanagerv1.Issuer{}
-		if err := decoder.Decode(&issuer); err != nil {
-			return nil, makeError("Issuer", err)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(candidate.Object, &issuer); err != nil {
+			return makeError("Issuer", err)
 		}
 		if err := injectNamespace(&issuer, opt); err != nil {
-			return nil, makeError("Issuer", err)
+			return makeError("Issuer", err)
 		}
 		if resourceMatchesOpt(&issuer, opt) {
 			result.Issuers = append(result.Issuers, issuer)
 		}
 
-	case "IssuerList":
-		list := certmanagerv1.IssuerList{}
-		if err := decoder.Decode(&list); err != nil {
-			return nil, makeError("IssuerList", err)
-		}
-		for _, issuer := range list.Items {
-			if err := injectNamespace(&issuer, opt); err != nil {
-				return nil, makeError("Issuer", err)
-			}
-			if resourceMatchesOpt(&issuer, opt) {
-				result.Issuers = append(result.Issuers, issuer)
-			}
-		}
-
-	case "ClusterIssuer":
+	case "ClusterIssuer.cert-manager.io":
 		clusterIssuer := certmanagerv1.ClusterIssuer{}
-		if err := decoder.Decode(&clusterIssuer); err != nil {
-			return nil, makeError("ClusterIssuer", err)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(candidate.Object, &clusterIssuer); err != nil {
+			return makeError("ClusterIssuer", err)
 		}
 		// strip out misleading metadata
 		clusterIssuer.Namespace = ""
 
 		result.ClusterIssuers = append(result.ClusterIssuers, clusterIssuer)
-
-	case "ClusterIssuerList":
-		list := certmanagerv1.ClusterIssuerList{}
-		if err := decoder.Decode(&list); err != nil {
-			return nil, makeError("ClusterIssuerList", err)
-		}
-
-		for _, clusterIssuer := range list.Items {
-			// strip out misleading metadata
-			clusterIssuer.Namespace = ""
-			result.ClusterIssuers = append(result.ClusterIssuers, clusterIssuer)
-		}
-
-	default:
-		// ignore other resources in the cert-manager API group
-		// TODO: handle corev1/Lists, so kubectl outputs can be more easily digested
-		return nil, nil
 	}
 
-	return result, nil
+	return nil
 }
 
 func injectNamespace(res metav1.Object, opt *Options) error {
