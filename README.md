@@ -90,7 +90,7 @@ go install go.xrstf.de/pkiplot
 
 Couldn't really be any simpler:
 
-```bash
+```
 Usage of pkiplot:
       --cluster-resource-namespace string   cert-manager's cluster resource namespace, used to find secrets referenced by cluster-scoped objects (default "cert-manager")
   -f, --format string                       Output format (one of [graphviz mermaid]) (default "mermaid")
