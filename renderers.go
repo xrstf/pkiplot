@@ -5,5 +5,4 @@ package main
 
 import (
 	_ "go.xrstf.de/pkiplot/pkg/render/mermaid"
-	// _ "go.xrstf.de/pkiplot/pkg/render/mermaid-old"
 )
