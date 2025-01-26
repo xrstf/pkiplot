@@ -80,7 +80,7 @@ graph TB
 
 ## Installation
 
-Either [download the latest release](https://github.com/xrstf/pkiplot/releases) or build for yourself using Go 1.20+:
+Either [download the latest release](https://github.com/xrstf/pkiplot/releases) or build for yourself using Go 1.23+:
 
 ```bash
 go install go.xrstf.de/pkiplot
@@ -93,9 +93,12 @@ Couldn't really be any simpler:
 ```bash
 Usage of pkiplot:
       --cluster-resource-namespace string   cert-manager's cluster resource namespace, used to find secrets referenced by cluster-scoped objects (default "cert-manager")
-  -f, --format string                       Output format (one of [mermaid]) (default "mermaid")
+  -f, --format string                       Output format (one of [graphviz mermaid]) (default "mermaid")
+      --mermaid-disable-classdefs           Mermaid: do not output classDef statements
+      --mermaid-show-type                   Mermaid: include a node's type in the node label
   -n, --namespace string                    Only include namespace-scoped resources in this namespace (also the default namespace for resources without namespace set)
-  -v, --verbose                             Enable more verbose output
+      --show-secrets                        Include Kubernetes Secrets in the graph
+      --show-synthetics                     Include objects in the graph that are only referenced, but not included in the YAML files (e.g. missing Secrets or Issuers)
   -V, --version                             Show version info and exit immediately
 ```
 
