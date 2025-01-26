@@ -259,8 +259,6 @@ func loadManifestsSourceReader(result *types.PKI, opt *Options, source io.ReadCl
 	return nil
 }
 
-var fileExtensions = []string{"yaml", "yml"}
-
 func loadManifestsSourceDirectory(result *types.PKI, opt *Options, rootDir string) error {
 	contents, err := os.ReadDir(rootDir)
 	if err != nil {

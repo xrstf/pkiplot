@@ -4,5 +4,6 @@
 package main
 
 import (
+	_ "go.xrstf.de/pkiplot/pkg/render/graphviz"
 	_ "go.xrstf.de/pkiplot/pkg/render/mermaid"
 )

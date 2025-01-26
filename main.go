@@ -6,10 +6,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"runtime"
 
-	"github.com/dominikbraun/graph/draw"
 	"github.com/spf13/pflag"
 
 	"go.xrstf.de/pkiplot/pkg/loader"
@@ -101,11 +99,8 @@ func main() {
 		log.Fatalf("Failed to load all sources: %v.", err)
 	}
 
-	g := pkigraph.NewFromPKI(pki, opts.graphOptions)
-	file, _ := os.Create("./simple.gv")
-	_ = draw.DOT(g.Raw(), file)
-
-	rendered, err := renderer.RenderGraph(g)
+	graph := pkigraph.NewFromPKI(pki, opts.graphOptions)
+	rendered, err := renderer.RenderGraph(graph)
 	if err != nil {
 		log.Fatalf("Failed rendering PKI: %v.", err)
 	}

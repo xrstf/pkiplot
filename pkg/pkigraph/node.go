@@ -76,10 +76,6 @@ func secretNode(secret corev1.Secret) Node {
 	return Node{Secret: &secret}
 }
 
-func secretHash(secret corev1.Secret) string {
-	return objectHash(&secret)
-}
-
 func certificateNode(cert certmanagerv1.Certificate) Node {
 	return Node{Certificate: &cert}
 }

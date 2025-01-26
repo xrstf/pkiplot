@@ -25,16 +25,6 @@ func nodeID(node pkigraph.Node) string {
 	return fmt.Sprintf("%s_%s", node.ObjectKind(), ident)
 }
 
-func objectID(obj metav1.Object) string {
-	ident := objectName(obj)
-
-	if ns := obj.GetNamespace(); ns != "" {
-		ident = ns + "/" + ident
-	}
-
-	return strings.ReplaceAll(ident, "-", "_")
-}
-
 func objectName(obj metav1.Object) string {
 	base := obj.GetName()
 	if base != "" {
