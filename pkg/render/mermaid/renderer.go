@@ -44,6 +44,7 @@ func (r *renderer) RenderGraph(pki pkigraph.Graph) (string, error) {
 	// sort nodes alphabetically for stable output order
 	nodeNames := sets.List(sets.KeySet(amap))
 
+	// first print all the nodes
 	for _, nodeHash := range nodeNames {
 		srcNode, err := pki.Raw().Vertex(nodeHash)
 		if err != nil {
@@ -51,11 +52,12 @@ func (r *renderer) RenderGraph(pki pkigraph.Graph) (string, error) {
 		}
 
 		srcNodeID := nodeID(srcNode)
-		buf.Printf("\t%s([%s]):::%s\n", srcNodeID, objectName(srcNode.Object()), srcNode.ObjectKind())
+		buf.Printf("\t%s([%s]):::%s\n", srcNodeID, objectName(srcNode.Object()), nodeClass(srcNode))
 	}
 
 	buf.Printf("\n")
 
+	// then print all the edges
 	for nodeHash, edgeMap := range amap {
 		srcNode, err := pki.Raw().Vertex(nodeHash)
 		if err != nil {

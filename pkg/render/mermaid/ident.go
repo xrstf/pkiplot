@@ -48,3 +48,18 @@ func objectName(obj metav1.Object) string {
 
 	panic("object has neither name nor generateName")
 }
+
+func nodeClass(n pkigraph.Node) string {
+	class := n.ObjectKind()
+
+	// highlight CAs in the graph
+	if n.Certificate != nil && n.Certificate.Spec.IsCA {
+		class = "ca"
+	}
+
+	if n.Synthetic {
+		class += "_synthetic"
+	}
+
+	return class
+}
