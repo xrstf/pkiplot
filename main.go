@@ -41,14 +41,16 @@ func printVersion() {
 }
 
 type globalOptions struct {
-	namespace string
-	format    string
-	verbose   bool
-	version   bool
+	namespace                string
+	clusterResourceNamespace string
+	format                   string
+	verbose                  bool
+	version                  bool
 }
 
 func (o *globalOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.namespace, "namespace", "n", o.namespace, "Only include namespace-scoped resources in this namespace (also the default namespace for resources without namespace set)")
+	fs.StringVarP(&o.clusterResourceNamespace, "cluster-resource-namespace", "", o.clusterResourceNamespace, "cert-manager's cluster resource namespace, used to find secrets referenced by cluster-scoped objects")
 	fs.StringVarP(&o.format, "format", "f", o.format, fmt.Sprintf("Output format (one of %v)", render.All()))
 	fs.BoolVarP(&o.verbose, "verbose", "v", o.verbose, "Enable more verbose output")
 	fs.BoolVarP(&o.version, "version", "V", o.version, "Show version info and exit immediately")
@@ -62,7 +64,8 @@ func main() {
 	}
 
 	opts := globalOptions{
-		format: "mermaid",
+		format:                   "mermaid",
+		clusterResourceNamespace: "cert-manager",
 	}
 
 	opts.AddFlags(pflag.CommandLine)
@@ -95,7 +98,7 @@ func main() {
 		log.Fatalf("Failed to load all sources: %v.", err)
 	}
 
-	g := pkigraph.NewFromPKI(pki)
+	g := pkigraph.NewFromPKI(pki, opts.clusterResourceNamespace)
 	file, _ := os.Create("./simple.gv")
 	_ = draw.DOT(g.Raw(), file)
 

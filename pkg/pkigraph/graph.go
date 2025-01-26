@@ -23,7 +23,7 @@ func New() Graph {
 	return Graph{g: g}
 }
 
-func NewFromPKI(pki *types.PKI) Graph {
+func NewFromPKI(pki *types.PKI, clusterResourceNamespace string) Graph {
 	pg := New()
 
 	// add vertices for all PKI elements
@@ -67,6 +67,18 @@ func NewFromPKI(pki *types.PKI) Graph {
 		// connect the secret that a CA issuer uses to sign new certs
 		if caConfig := issuer.Spec.CA; caConfig != nil && caConfig.SecretName != "" {
 			secretNode := pg.ensureSecret(issuer.Namespace, caConfig.SecretName)
+			pg.g.AddEdge(hash, secretNode.Hash())
+		}
+	}
+
+	for _, clusterIssuer := range pki.ClusterIssuers {
+		hash := clusterIssuerHash(clusterIssuer)
+
+		// connect the secret that a CA cluster issuer uses to sign new certs;
+		// note that since CI's are cluster-scoped, the special cert-manager resources namespace
+		// is used to find the secrets.
+		if caConfig := clusterIssuer.Spec.CA; caConfig != nil && caConfig.SecretName != "" {
+			secretNode := pg.ensureSecret(clusterResourceNamespace, caConfig.SecretName)
 			pg.g.AddEdge(hash, secretNode.Hash())
 		}
 	}
