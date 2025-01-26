@@ -96,7 +96,7 @@ func (r *renderer) RenderGraph(pki pkigraph.Graph) (string, error) {
 		buf.WriteString("\tclassDef clusterissuer color:#7F7\n")
 		buf.WriteString("\tclassDef issuer color:#77F\n")
 		buf.WriteString("\tclassDef ca color:#F77\n")
-		buf.WriteString("\tclassDef cert color:orange\n")
+		buf.WriteString("\tclassDef certificate color:orange\n")
 		buf.WriteString("\tclassDef secret color:red")
 	}
 
