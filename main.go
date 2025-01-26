@@ -102,7 +102,7 @@ func main() {
 	file, _ := os.Create("./simple.gv")
 	_ = draw.DOT(g.Raw(), file)
 
-	rendered, err := renderer.Render(pki)
+	rendered, err := renderer.RenderGraph(g)
 	if err != nil {
 		log.Fatalf("Failed rendering PKI: %v.", err)
 	}

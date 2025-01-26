@@ -8,11 +8,11 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"go.xrstf.de/pkiplot/pkg/types"
+	"go.xrstf.de/pkiplot/pkg/pkigraph"
 )
 
 type Renderer interface {
-	Render(pki *types.PKI) (string, error)
+	RenderGraph(pki pkigraph.Graph) (string, error)
 	AddFlags(fs *pflag.FlagSet)
 	ValidateFlags() error
 }

@@ -41,6 +41,10 @@ func (n Node) Object() metav1.Object {
 	}
 }
 
+func (n Node) ObjectKind() string {
+	return objectKind(n.Object())
+}
+
 func (n Node) Hash() string {
 	return objectHash(n.Object())
 }
@@ -49,13 +53,17 @@ func nodeHash(n Node) string {
 	return objectHash(n.Object())
 }
 
-func objectHash(obj metav1.Object) string {
+func objectKind(obj metav1.Object) string {
 	t := reflect.TypeOf(obj)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 
-	kind := strings.ToLower(t.Name())
+	return strings.ToLower(t.Name())
+}
+
+func objectHash(obj metav1.Object) string {
+	kind := objectKind(obj)
 
 	if ns := obj.GetNamespace(); ns != "" {
 		return fmt.Sprintf("%s:%s:%s", kind, ns, obj.GetName())

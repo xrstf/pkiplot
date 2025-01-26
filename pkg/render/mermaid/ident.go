@@ -7,51 +7,44 @@ import (
 	"fmt"
 	"strings"
 
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"go.xrstf.de/pkiplot/pkg/pkigraph"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ResourceIdentifier(res metav1.Object) string {
-	ident := ResourceName(res)
+func nodeID(node pkigraph.Node) string {
+	obj := node.Object()
+	ident := objectName(obj)
 
-	if ns := res.GetNamespace(); ns != "" {
+	if ns := obj.GetNamespace(); ns != "" {
+		ident = ns + "/" + ident
+	}
+
+	ident = strings.ReplaceAll(ident, "-", "_")
+
+	return fmt.Sprintf("%s_%s", node.ObjectKind(), ident)
+}
+
+func objectID(obj metav1.Object) string {
+	ident := objectName(obj)
+
+	if ns := obj.GetNamespace(); ns != "" {
 		ident = ns + "/" + ident
 	}
 
 	return strings.ReplaceAll(ident, "-", "_")
 }
 
-func IssuerResourceIdentifier(cert certmanagerv1.Certificate) string {
-	issuerKind := ""
-	issuerIdent := ""
-
-	ref := cert.Spec.IssuerRef
-	switch ref.Kind {
-	case "":
-		fallthrough
-	case "Issuer":
-		issuerKind = "i"
-		issuerIdent = cert.GetNamespace() + "/" + ref.Name
-
-	case "ClusterIssuer":
-		issuerKind = "ci"
-		issuerIdent = ref.Name
-	}
-
-	return fmt.Sprintf("%s_%s", issuerKind, strings.ReplaceAll(issuerIdent, "-", "_"))
-}
-
-func ResourceName(res metav1.Object) string {
-	base := res.GetName()
+func objectName(obj metav1.Object) string {
+	base := obj.GetName()
 	if base != "" {
 		return base
 	}
 
-	base = res.GetGenerateName()
+	base = obj.GetGenerateName()
 	if base != "" {
 		return base
 	}
 
-	panic("resource has neither name nor generateName")
+	panic("object has neither name nor generateName")
 }

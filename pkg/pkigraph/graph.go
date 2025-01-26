@@ -46,7 +46,7 @@ func NewFromPKI(pki *types.PKI, clusterResourceNamespace string) Graph {
 		// create an edge between a cert and the secret it produces
 		if secretName := cert.Spec.SecretName; secretName != "" {
 			secretNode := pg.ensureSecret(cert.Namespace, secretName)
-			pg.g.AddEdge(hash, secretNode.Hash())
+			pg.g.AddEdge(secretNode.Hash(), hash)
 		}
 
 		// create an edge between a cert and its issuer
