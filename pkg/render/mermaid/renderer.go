@@ -5,13 +5,27 @@ package mermaid
 
 import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/spf13/pflag"
 
+	"go.xrstf.de/pkiplot/pkg/render"
 	"go.xrstf.de/pkiplot/pkg/types"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func Render(pki *types.PKI) (string, error) {
+type renderer struct{}
+
+var _ render.Renderer = &renderer{}
+
+func New() *renderer {
+	return &renderer{}
+}
+
+func (r *renderer) AddFlags(fs *pflag.FlagSet) {
+	// NOP
+}
+
+func (r *renderer) Render(pki *types.PKI) (string, error) {
 	var buf types.StringBuilder
 	buf.WriteString("graph TB\n")
 
@@ -125,4 +139,9 @@ func Render(pki *types.PKI) (string, error) {
 	buf.WriteString("\tclassDef cert color:orange")
 
 	return buf.String(), nil
+}
+
+func (r *renderer) ValidateFlags() error {
+	// NOP
+	return nil
 }

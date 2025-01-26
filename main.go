@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"log"
 	"runtime"
-	"slices"
 
 	"github.com/spf13/pflag"
 
 	"go.xrstf.de/pkiplot/pkg/loader"
-	"go.xrstf.de/pkiplot/pkg/render/mermaid"
+	"go.xrstf.de/pkiplot/pkg/render"
 )
 
 // These variables get set by ldflags during compilation.
@@ -45,16 +44,20 @@ type globalOptions struct {
 	version   bool
 }
 
-var outputFormats = []string{"mermaid"}
-
 func (o *globalOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.namespace, "namespace", "n", o.namespace, "Only include namespace-scoped resources in this namespace (also the default namespace for resources without namespace set)")
-	fs.StringVarP(&o.format, "format", "f", o.format, fmt.Sprintf("Output format (one of %v)", outputFormats))
+	fs.StringVarP(&o.format, "format", "f", o.format, fmt.Sprintf("Output format (one of %v)", render.All()))
 	fs.BoolVarP(&o.verbose, "verbose", "v", o.verbose, "Enable more verbose output")
 	fs.BoolVarP(&o.version, "version", "V", o.version, "Show version info and exit immediately")
 }
 
 func main() {
+	allRenderers := render.All()
+	for _, name := range allRenderers {
+		r, _ := render.Get(name)
+		r.AddFlags(pflag.CommandLine)
+	}
+
 	opts := globalOptions{
 		format: "mermaid",
 	}
@@ -67,13 +70,18 @@ func main() {
 		return
 	}
 
-	if !slices.Contains(outputFormats, opts.format) {
-		log.Fatalf("Invalid output format %q, must be one of %v.", opts.format, outputFormats)
-	}
-
 	args := pflag.Args()
 	if len(args) == 0 {
 		log.Fatal("No input file(s) provided.")
+	}
+
+	renderer, exists := render.Get(opts.format)
+	if !exists {
+		log.Fatalf("Invalid output format %q, must be one of %v.", opts.format, render.All())
+	}
+
+	if err := renderer.ValidateFlags(); err != nil {
+		log.Fatalf("Invalid command line flags: %v.", err)
 	}
 
 	loaderOpts := loader.NewDefaultOptions()
@@ -84,14 +92,7 @@ func main() {
 		log.Fatalf("Failed to load all sources: %v.", err)
 	}
 
-	var rendered string
-	switch opts.format {
-	case "mermaid":
-		rendered, err = mermaid.Render(manifests)
-	default:
-		panic("Unknown format, $outputFormats is out of sync with codebase.")
-	}
-
+	rendered, err := renderer.Render(manifests)
 	if err != nil {
 		log.Fatalf("Failed rendering PKI: %v.", err)
 	}
