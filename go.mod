@@ -6,6 +6,7 @@ toolchain go1.23.4
 
 require (
 	github.com/cert-manager/cert-manager v1.16.3
+	github.com/dominikbraun/graph v0.23.0
 	github.com/spf13/pflag v1.0.5
 	k8s.io/apimachinery v0.32.1
 )

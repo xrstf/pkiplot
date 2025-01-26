@@ -6,11 +6,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime"
 
+	"github.com/dominikbraun/graph/draw"
 	"github.com/spf13/pflag"
 
 	"go.xrstf.de/pkiplot/pkg/loader"
+	"go.xrstf.de/pkiplot/pkg/pkigraph"
 	"go.xrstf.de/pkiplot/pkg/render"
 )
 
@@ -87,12 +90,16 @@ func main() {
 	loaderOpts := loader.NewDefaultOptions()
 	loaderOpts.Namespace = opts.namespace
 
-	manifests, err := loader.LoadPKI(args, loaderOpts)
+	pki, err := loader.LoadPKI(args, loaderOpts)
 	if err != nil {
 		log.Fatalf("Failed to load all sources: %v.", err)
 	}
 
-	rendered, err := renderer.Render(manifests)
+	g := pkigraph.NewFromPKI(pki)
+	file, _ := os.Create("./simple.gv")
+	_ = draw.DOT(g.Raw(), file)
+
+	rendered, err := renderer.Render(pki)
 	if err != nil {
 		log.Fatalf("Failed rendering PKI: %v.", err)
 	}
